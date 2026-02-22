@@ -127,12 +127,19 @@ export default function App() {
       const canvas = await html2canvas(chartsRef.current, {
         scale: 2,
         backgroundColor: isDarkMode ? '#09090b' : '#f8f9fa',
+        logging: false,
+        useCORS: true
       });
       const image = canvas.toDataURL('image/png', 1.0);
+      const fileName = `apm_charts_${new Date().toISOString().split('T')[0]}.png`;
+
+      // Use helper to ensure reliable download
       const link = document.createElement('a');
-      link.download = `apm_charts_${new Date().toISOString().split('T')[0]}.png`;
       link.href = image;
+      link.download = fileName;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Failed to export image:', error);
       alert('画像の保存に失敗しました。');
