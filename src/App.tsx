@@ -60,6 +60,18 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const downloadFile = (content: string, fileName: string, contentType: string) => {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+};
+
 // --- Types ---
 interface Project {
   id: string;
@@ -458,12 +470,7 @@ export default function App() {
         `> **Keep Touching Childlike?**\n` +
         `> ワクワクする気持ちを忘れずに進められていますか？`;
 
-      const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `apm_strategic_report_${new Date().toISOString().split('T')[0]}.md`);
-      link.click();
+      downloadFile(mdContent, `apm_strategic_report_${new Date().toISOString().split('T')[0]}.md`, 'text/markdown;charset=utf-8;');
     } catch (error) {
       console.error("Failed to generate report:", error);
       alert("レポート生成に失敗しました。");
@@ -506,12 +513,7 @@ export default function App() {
       overallAdvice
     };
     const dataStr = JSON.stringify(data, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const exportFileDefaultName = `apm_analysis_${new Date().toISOString().split('T')[0]}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+    downloadFile(dataStr, `apm_analysis_${new Date().toISOString().split('T')[0]}.json`, 'application/json;charset=utf-8;');
   };
 
   const exportToCsv = () => {
@@ -524,12 +526,7 @@ export default function App() {
       }).join(','))
     ];
     const csvStr = csvRows.join('\n');
-    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `apm_analysis_${new Date().toISOString().split('T')[0]}.csv`);
-    link.click();
+    downloadFile(csvStr, `apm_analysis_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
   };
 
   const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
