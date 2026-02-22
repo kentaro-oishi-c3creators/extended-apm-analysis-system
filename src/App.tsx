@@ -26,7 +26,10 @@ import {
   Settings,
   FileText,
   Eye,
-  Edit3
+  Edit3,
+  HelpCircle,
+  BookOpen,
+  ArrowRight
 } from 'lucide-react';
 import {
   ScatterChart,
@@ -129,7 +132,7 @@ const Slider = ({ label, value, onChange, icon: Icon, color, description }: Slid
         <span className="text-sm font-medium text-zinc-700">{label}</span>
         <div className="group relative">
           <Info size={12} className="text-zinc-400 cursor-help" />
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
             {description}
           </div>
         </div>
@@ -147,6 +150,125 @@ const Slider = ({ label, value, onChange, icon: Icon, color, description }: Slid
     />
   </div>
 );
+
+const UsageGuide = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [step, setStep] = useState(0);
+  const steps = [
+    {
+      title: "APM分析へようこそ",
+      description: "APM（Action Priority Matrix）は、あなたの情熱（ワクワク）と科学（分析）を融合させ、次に何をすべきかを明確にするツールです。",
+      icon: <Brain className="text-indigo-500 w-12 h-12" />,
+      content: (
+        <div className="space-y-4 text-sm text-zinc-600">
+          <p>「やりたいことはあるけど、何から手をつければいいかわからない」</p>
+          <p>そんな時は、アイデアを登録して5つの属性（インパクト、努力、ワクワク度など）を直感でスコアリングしてみてください。</p>
+        </div>
+      )
+    },
+    {
+      title: "3つの重要指標",
+      description: "入力されたデータから、独自のアルゴリズムで3つの「勝ち筋」を算出します。",
+      icon: <BarChart3 className="text-emerald-500 w-12 h-12" />,
+      content: (
+        <div className="grid grid-cols-1 gap-3">
+          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs">
+            <span className="font-bold text-emerald-700 block mb-1">QWI (Quick Win Index)</span>
+            少ない努力で大きな成果が出る「今すぐやるべき」効率性指標です。
+          </div>
+          <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 text-xs">
+            <span className="font-bold text-blue-700 block mb-1">LII (Long-term Investment)</span>
+            将来の大きな資産になる「コツコツ育てるべき」資産価値指標です。
+          </div>
+          <div className="p-3 bg-pink-50 rounded-xl border border-pink-100 text-xs">
+            <span className="font-bold text-pink-700 block mb-1">MSI (Mental Safety Index)</span>
+            あなたの心が疲れないか、ワクワクが勝っているかを示す継続性指標です。
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "AIとの最強タッグ",
+      description: "このアプリはオフラインで動きますが、外部のAI（ChatGPT Plusなど）と組み合わせることで真価を発揮します。",
+      icon: <Sparkles className="text-amber-500 w-12 h-12" />,
+      content: (
+        <div className="space-y-4 text-sm text-zinc-600">
+          <p>ヘッダーの「AI連携プロンプトを生成」ボタンを押すと、あなたの全データとパーソナリティを盛り込んだ最強の指示書がコピーされます。</p>
+          <p>それをAIに貼り付けるだけで、世界トップクラスのコンサルタントによる個別アドバイスが受けられます。</p>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-zinc-900/80 backdrop-blur-md"
+          />
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden shadow-indigo-500/10"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-8 text-center space-y-6">
+              <div className="flex justify-center">{steps[step].icon}</div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold text-zinc-900">{steps[step].title}</h2>
+                <p className="text-sm text-zinc-500 leading-relaxed px-4">{steps[step].description}</p>
+              </div>
+              <div className="bg-zinc-50 p-6 rounded-2xl min-h-[180px] flex flex-col justify-center">
+                {steps[step].content}
+              </div>
+              <div className="flex items-center justify-between pt-4">
+                <div className="flex gap-1.5">
+                  {steps.map((_, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-all duration-300",
+                        step === i ? "w-6 bg-zinc-900" : "bg-zinc-200"
+                      )}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  {step > 0 && (
+                    <button
+                      onClick={() => setStep(s => s - 1)}
+                      className="px-4 py-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 transition-colors"
+                    >
+                      戻る
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (step < steps.length - 1) {
+                        setStep(s => s + 1);
+                      } else {
+                        onClose();
+                      }
+                    }}
+                    className="flex items-center gap-2 bg-zinc-900 text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-zinc-800 transition-all active:scale-95 shadow-lg shadow-zinc-900/20"
+                  >
+                    {step < steps.length - 1 ? "次へ" : "分析をはじめる"}
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>(() => {
@@ -219,11 +341,20 @@ export default function App() {
   const [isExportingMd, setIsExportingMd] = useState(false);
   const [isGeneratingAdvice, setIsGeneratingAdvice] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [userPersonality, setUserPersonality] = useState(PERSONALITY_PRESETS[0].value);
   const [overallAdvice, setOverallAdvice] = useState('');
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [isCopied, setIsCopied] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'active' | 'completed'>('all');
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('has_seen_guide');
+    if (!hasSeen) {
+      setShowUsage(true);
+      localStorage.setItem('has_seen_guide', 'true');
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('apm_projects', JSON.stringify(projects));
@@ -578,6 +709,15 @@ ${JSON.stringify(
               {isCopied ? "コピーしました！" : "AI連携プロンプトを生成"}
             </button>
 
+            <button
+              onClick={() => setShowUsage(true)}
+              className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500 transition-colors flex items-center gap-2 group"
+              title="使い方ガイド"
+            >
+              <HelpCircle size={18} className="group-hover:text-zinc-900" />
+              <span className="text-xs font-bold hidden md:inline group-hover:text-zinc-900">使い方</span>
+            </button>
+
             <div className="w-px h-6 bg-zinc-200 mx-1"></div>
 
             <div className="flex items-center bg-zinc-100 rounded-lg p-1 mr-2">
@@ -673,11 +813,25 @@ ${JSON.stringify(
 
             <div className="divide-y divide-zinc-100 max-h-[600px] overflow-y-auto">
               {filteredProjects.length === 0 ? (
-                <div className="p-12 text-center space-y-3">
-                  <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mx-auto">
-                    <Plus size={20} className="text-zinc-300" />
+                <div className="p-12 text-center space-y-4">
+                  <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-zinc-200">
+                    <Lightbulb size={32} className="text-zinc-300" />
                   </div>
-                  <p className="text-sm text-zinc-400">プロジェクトがありません</p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-zinc-900">アイデアを登録しましょう</p>
+                    <p className="text-xs text-zinc-400 px-4">
+                      まず、気になっている副業案やプロジェクトを「新規アイデア追加」から1つ追加してみましょう！
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingProject({ ...INITIAL_PROJECT });
+                      setIsAdding(true);
+                    }}
+                    className="mt-2 text-xs font-bold bg-zinc-900 text-white px-6 py-2 rounded-full hover:bg-zinc-800 transition-all shadow-md active:scale-95"
+                  >
+                    最初のアイデアを追加
+                  </button>
                 </div>
               ) : (
                 filteredProjects.map((p) => (
@@ -921,9 +1075,33 @@ ${JSON.stringify(
                 <thead>
                   <tr className="bg-zinc-50/50 border-b border-zinc-100">
                     <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase">プロジェクト名</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">QWI (Quick)</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">LII (Long)</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">MSI (Safety)</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">
+                      <div className="flex items-center justify-center gap-1 group relative">
+                        QWI (Quick)
+                        <Info size={10} className="text-zinc-300 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl font-normal normal-case">
+                          すぐに成果が出る「今すぐやるべき」効率性指標。努力が少なく、インパクトが大きいほど高くなります。
+                        </div>
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">
+                      <div className="flex items-center justify-center gap-1 group relative">
+                        LII (Long)
+                        <Info size={10} className="text-zinc-300 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl font-normal normal-case">
+                          将来の大きな資産になる「コツコツ育てるべき」資産価値指標。凸性（小リスク大リターン）を重視します。
+                        </div>
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">
+                      <div className="flex items-center justify-center gap-1 group relative">
+                        MSI (Safety)
+                        <Info size={10} className="text-zinc-300 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl font-normal normal-case">
+                          あなたの心が疲れないかを示す継続性指標。ワクワク度が摩耗を上回ると高くなります。
+                        </div>
+                      </div>
+                    </th>
                     <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-right">総合スコア</th>
                   </tr>
                 </thead>
@@ -996,6 +1174,7 @@ ${JSON.stringify(
 
       {/* Edit Modal Component */}
       {renderSettings()}
+      <UsageGuide isOpen={showUsage} onClose={() => setShowUsage(false)} />
       <AnimatePresence>
         {editingProject && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
