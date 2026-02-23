@@ -31,17 +31,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}
-                        className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
+                        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-transparent dark:border-zinc-800"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                            <h2 className="text-sm font-bold flex items-center gap-2 text-zinc-900">
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50">
+                            <h2 className="text-sm font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
                                 <Settings size={16} />
                                 分析設定
                             </h2>
                             <button
                                 onClick={onClose}
-                                className="p-1.5 hover:bg-zinc-200 rounded-lg text-zinc-500 transition-colors"
+                                className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 transition-colors"
                             >
                                 ✕
                             </button>
@@ -49,7 +49,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         <div className="p-6 space-y-6">
                             <div className="space-y-3">
-                                <label className="text-xs font-bold text-zinc-500 uppercase">あなたのパーソナリティ（AI分析用）</label>
+                                <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase">あなたのパーソナリティ（AI分析用）</label>
 
                                 {/* Presets */}
                                 <div className="grid grid-cols-2 gap-2 mb-3">
@@ -60,8 +60,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             className={cn(
                                                 "text-xs px-3 py-2 rounded-lg border text-left transition-all",
                                                 userPersonality === preset.value
-                                                    ? "border-zinc-900 bg-zinc-900 text-white"
-                                                    : "border-zinc-200 hover:border-zinc-300 text-zinc-600 hover:bg-zinc-50"
+                                                    ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
+                                                    : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                             )}
                                         >
                                             {preset.label}
@@ -72,7 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <textarea
                                     value={userPersonality}
                                     onChange={(e) => setUserPersonality(e.target.value)}
-                                    className="w-full text-sm border-2 border-zinc-200 rounded-xl p-3 h-24 focus:outline-none focus:border-zinc-900 transition-colors bg-white text-zinc-900"
+                                    className="w-full text-sm border-2 border-zinc-200 dark:border-zinc-700 rounded-xl p-3 h-24 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-400 transition-colors bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                                     placeholder="あなたの性格、強み、弱み、モチベーションの源泉などを入力..."
                                 />
                             </div>

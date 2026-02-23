@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Project, CalculatedProject } from '../types';
-import { INITIAL_PROJECT, DEFAULT_PROJECTS } from '../constants';
+import { DEFAULT_PROJECTS } from '../constants';
 
 export const useProjects = () => {
     const [projects, setProjects] = useState<Project[]>(() => {
@@ -8,7 +8,7 @@ export const useProjects = () => {
         return saved ? JSON.parse(saved) : DEFAULT_PROJECTS;
     });
 
-    const [editingProject, setEditingProject] = useState<Project>({ ...INITIAL_PROJECT });
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [showUsage, setShowUsage] = useState(false);
     const [userPersonality, setUserPersonality] = useState('');
@@ -63,25 +63,22 @@ export const useProjects = () => {
         setProjects(result);
     };
 
-    const saveProject = () => {
-        if (!editingProject.name) {
-            alert("プロジェクト名を入力してください。");
-            return;
-        }
+    const saveProject = (project: Project) => {
+        if (!project.name) return;
 
-        if (editingProject.id) {
-            setProjects(projects.map(p => p.id === editingProject.id ? editingProject : p));
+        if (project.id) {
+            setProjects(prev => prev.map(p => p.id === project.id ? project : p));
         } else {
-            setProjects([...projects, { ...editingProject, id: Date.now().toString() }]);
+            setProjects(prev => [...prev, { ...project, id: crypto.randomUUID() }]);
         }
         setIsAdding(false);
-        setEditingProject({ ...INITIAL_PROJECT });
+        setEditingProject(null);
     };
 
     const deleteProject = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (window.confirm('このプロジェクトを削除しますか？')) {
-            setProjects(projects.filter(p => p.id !== id));
+            setProjects(prev => prev.filter(p => p.id !== id));
         }
     };
 
@@ -89,10 +86,10 @@ export const useProjects = () => {
         e.stopPropagation();
         const duplicated = {
             ...project,
-            id: Date.now().toString(),
+            id: crypto.randomUUID(),
             name: `${project.name} (コピー)`
         };
-        setProjects([...projects, duplicated]);
+        setProjects(prev => [...prev, duplicated]);
     };
 
     return {

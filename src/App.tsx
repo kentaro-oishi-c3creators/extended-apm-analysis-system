@@ -7,9 +7,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
   Trash2,
-  TrendingUp,
-  Zap,
-  ShieldCheck,
   Brain,
   Target,
   ChevronRight,
@@ -28,10 +25,10 @@ import {
   Eye,
   Edit3,
   HelpCircle,
-  BookOpen,
-  ArrowRight,
   Sun,
-  Moon
+  Moon,
+  Menu,
+  X
 } from 'lucide-react';
 import {
   ScatterChart,
@@ -44,7 +41,6 @@ import {
   ResponsiveContainer,
   Cell,
   ReferenceLine,
-  Label,
   LabelList,
   Radar,
   RadarChart,
@@ -53,16 +49,14 @@ import {
   PolarRadiusAxis
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import Markdown from 'react-markdown';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import html2canvas from 'html2canvas-pro';
 
 // --- Utility ---
 import { cn, downloadFile } from './utils';
-import { Project, CalculatedProject } from './types';
-import { AXES, PERSONALITY_PRESETS, INITIAL_PROJECT } from './constants';
+import { Project } from './types';
+import { AXES, INITIAL_PROJECT } from './constants';
 import { Slider } from './components/ui/Slider';
 import { UsageGuide } from './components/modals/UsageGuide';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -73,7 +67,7 @@ export default function App() {
   const {
     projects, setProjects,
     calculatedProjects, filteredProjects,
-    reorderProjects,
+    reorderProjects, saveProject,
     editingProject, setEditingProject,
     isAdding, setIsAdding,
     filter, setFilter,
@@ -82,15 +76,13 @@ export default function App() {
     showUsage, setShowUsage
   } = useProjects();
 
-  const filterMode = filter;
-  const setFilterMode = setFilter;
-
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    if (filterMode !== 'all') return;
+    if (filter !== 'all') return;
     reorderProjects(result.source.index, result.destination.index);
   };
 
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExportingMd, setIsExportingMd] = useState(false);
   const [isGeneratingAdvice, setIsGeneratingAdvice] = useState(false);
@@ -187,18 +179,10 @@ export default function App() {
     };
   }, [calculatedProjects]);
 
-  const handleSave = (project: Project) => {
-    if (project.id) {
-      setProjects(prev => prev.map(p => p.id === project.id ? project : p));
-    } else {
-      setProjects(prev => [...prev, { ...project, id: Math.random().toString(36).substr(2, 9) }]);
-    }
-    setEditingProject(null);
-    setIsAdding(false);
-  };
-
   const handleDelete = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
+    if (window.confirm('このプロジェクトを削除しますか？')) {
+      setProjects(prev => prev.filter(p => p.id !== id));
+    }
   };
 
   const handleClearAll = () => {
@@ -248,7 +232,7 @@ export default function App() {
       const lowMsiProject = calculatedProjects.find(p => p.msi < 0.5);
 
       let advice = `### 現在の全体的な状態\n\n`;
-      advice += `全体的に非常にアクティブな状態です。特トップ優先度である**「${topProjects[0]?.name}」**に注力すると最も費用対効果が高いでしょう。\n\n`;
+      advice += `全体的に非常にアクティブな状態です。特にトップ優先度である**「${topProjects[0]?.name}」**に注力すると最も費用対効果が高いでしょう。\n\n`;
 
       if (lowMsiProject) {
         advice += `⚠️ **注意:** 「${lowMsiProject.name}」は精神的な負荷が高いため（MSI低下）、思い切って捨てるか、やり方を大きく変えることを推奨します。\n\n`;
@@ -326,7 +310,7 @@ export default function App() {
           }
         });
 
-        if (!p.id) p.id = Math.random().toString(36).substr(2, 9);
+        if (!p.id) p.id = crypto.randomUUID();
         return p as Project;
       });
 
@@ -385,72 +369,76 @@ ${JSON.stringify(
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-zinc-200 dark:selection:bg-zinc-800 transition-colors">
       {/* Header */}
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 sticky top-0 z-30 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-zinc-900 dark:bg-white rounded-lg flex items-center justify-center">
               <BarChart3 size={18} className="text-white dark:text-zinc-900" />
             </div>
-            <h1 className="text-lg font-semibold tracking-tight">拡張APM分析システム</h1>
+            <h1 className="text-lg font-semibold tracking-tight hidden sm:block">拡張APM分析システム</h1>
+            <h1 className="text-lg font-semibold tracking-tight sm:hidden">APM分析</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* AI prompt - full on desktop, icon on mobile */}
             <button
               onClick={copyPromptForAI}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:shadow-lg transition-all shadow-sm active:scale-95"
+              aria-label="AI連携プロンプトを生成"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-bold hover:shadow-lg transition-all shadow-sm active:scale-95"
             >
               <Brain size={16} />
-              {isCopied ? "コピーしました！" : "AI連携プロンプトを生成"}
+              <span className="hidden md:inline">{isCopied ? "コピーしました！" : "AI連携プロンプトを生成"}</span>
             </button>
 
+            {/* Usage guide - hidden on mobile, shown in menu */}
             <button
               onClick={() => setShowUsage(true)}
-              className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500 transition-colors flex items-center gap-2 group"
-              title="使い方ガイド"
+              aria-label="使い方ガイド"
+              className="hidden md:flex p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 transition-colors items-center gap-2 group"
             >
-              <HelpCircle size={18} className="group-hover:text-zinc-900" />
-              <span className="text-xs font-bold hidden md:inline group-hover:text-zinc-900">使い方</span>
+              <HelpCircle size={18} className="group-hover:text-zinc-900 dark:group-hover:text-zinc-100" />
+              <span className="text-xs font-bold hidden lg:inline group-hover:text-zinc-900 dark:group-hover:text-zinc-100">使い方</span>
             </button>
 
-            <div className="w-px h-6 bg-zinc-200 mx-1"></div>
+            {/* Theme toggle - always visible */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              aria-label="テーマ切り替え"
+              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-300 transition-all"
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
 
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1 mr-2">
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                title="テーマ切り替え"
-                className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all"
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-              <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
+            {/* Desktop toolbar */}
+            <div className="hidden md:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
               <button
                 onClick={exportToCsv}
-                title="CSVエクスポート"
-                className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-zinc-600 transition-all"
+                aria-label="CSVエクスポート"
+                className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all"
               >
                 <FileSpreadsheet size={16} />
               </button>
               <button
                 onClick={exportToJson}
-                title="JSONエクスポート"
-                className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-zinc-600 transition-all"
+                aria-label="JSONエクスポート"
+                className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all"
               >
                 <FileJson size={16} />
               </button>
               <button
                 onClick={exportToAiMarkdown}
                 disabled={isExportingMd}
-                title="AI戦略レポート(MD)出力"
-                className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-zinc-600 transition-all disabled:opacity-50"
+                aria-label="AI戦略レポート出力"
+                className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all disabled:opacity-50"
               >
                 <FileText size={16} className={cn(isExportingMd && "animate-pulse")} />
               </button>
               <button
                 onClick={() => setShowSettings(true)}
-                title="AI設定"
-                className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-zinc-600 transition-all"
+                aria-label="AI設定"
+                className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all"
               >
                 <Settings size={16} />
               </button>
-              <label className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-zinc-600 transition-all cursor-pointer">
+              <label className="p-1.5 hover:bg-white dark:hover:bg-zinc-700 hover:shadow-sm rounded-md text-zinc-600 dark:text-zinc-300 transition-all cursor-pointer" aria-label="CSVインポート">
                 <Upload size={16} />
                 <input
                   type="file"
@@ -460,18 +448,91 @@ ${JSON.stringify(
                 />
               </label>
             </div>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              aria-label="メニュー"
+              className="md:hidden p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-300 transition-all"
+            >
+              {showMobileMenu ? <X size={18} /> : <Menu size={18} />}
+            </button>
+
+            {/* New idea button */}
             <button
               onClick={() => {
                 setEditingProject({ ...INITIAL_PROJECT });
                 setIsAdding(true);
               }}
-              className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-800 transition-all shadow-sm active:scale-95"
+              aria-label="新規アイデア追加"
+              className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-3 md:px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-sm active:scale-95"
             >
               <Plus size={16} />
-              新規アイデア追加
+              <span className="hidden sm:inline">新規アイデア追加</span>
             </button>
           </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        <AnimatePresence>
+          {showMobileMenu && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 overflow-hidden"
+            >
+              <div className="px-4 py-3 space-y-1">
+                <button
+                  onClick={() => { setShowUsage(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <HelpCircle size={16} />
+                  使い方ガイド
+                </button>
+                <button
+                  onClick={() => { exportToCsv(); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <FileSpreadsheet size={16} />
+                  CSVエクスポート
+                </button>
+                <button
+                  onClick={() => { exportToJson(); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <FileJson size={16} />
+                  JSONエクスポート
+                </button>
+                <button
+                  onClick={() => { exportToAiMarkdown(); setShowMobileMenu(false); }}
+                  disabled={isExportingMd}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  <FileText size={16} />
+                  AI戦略レポート出力
+                </button>
+                <button
+                  onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <Settings size={16} />
+                  AI設定
+                </button>
+                <label className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                  <Upload size={16} />
+                  CSVインポート
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => { handleImportCsv(e); setShowMobileMenu(false); }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -488,10 +549,10 @@ ${JSON.stringify(
                 {(['all', 'in-progress', 'completed'] as const).map(mode => (
                   <button
                     key={mode}
-                    onClick={() => setFilterMode(mode)}
+                    onClick={() => setFilter(mode)}
                     className={cn(
                       "text-[10px] font-bold px-2 py-1 rounded transition-colors uppercase tracking-wider",
-                      filterMode === mode ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                      filter === mode ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                     )}
                   >
                     {mode === 'all' ? '全て' : mode === 'in-progress' ? '進行中' : '完了'}
@@ -513,7 +574,7 @@ ${JSON.stringify(
 
             <div className="max-h-[600px] overflow-y-auto">
               <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="project-list" isDropDisabled={filterMode !== 'all'}>
+                <Droppable droppableId="project-list" isDropDisabled={filter !== 'all'}>
                   {(provided) => (
                     <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y divide-zinc-100 dark:divide-zinc-800">
                       {filteredProjects.length === 0 ? (
@@ -539,7 +600,7 @@ ${JSON.stringify(
                         </div>
                       ) : (
                         filteredProjects.map((p, index) => (
-                          <Draggable key={p.id} draggableId={p.id} index={index} isDragDisabled={filterMode !== 'all'}>
+                          <Draggable key={p.id} draggableId={p.id} index={index} isDragDisabled={filter !== 'all'}>
                             {(provided) => (
                               <div
                                 ref={provided.innerRef}
@@ -547,7 +608,7 @@ ${JSON.stringify(
                                 {...provided.dragHandleProps}
                                 className={cn(
                                   "p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group cursor-pointer bg-white dark:bg-zinc-900",
-                                  filterMode !== 'all' && "cursor-default"
+                                  filter !== 'all' && "cursor-default"
                                 )}
                                 onClick={() => setEditingProject(p)}
                               >
@@ -571,6 +632,7 @@ ${JSON.stringify(
                                       e.stopPropagation();
                                       handleDelete(p.id);
                                     }}
+                                    aria-label={`「${p.name}」を削除`}
                                     className="p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                                   >
                                     <Trash2 size={14} />
@@ -759,8 +821,8 @@ ${JSON.stringify(
             </section>
 
             {/* Radar Chart Analysis */}
-            <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col md:flex-row">
-              <div className="p-6 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-zinc-100 bg-zinc-50/50">
+            <section className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col md:flex-row transition-colors">
+              <div className="p-6 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50">
                 <div className="flex items-center gap-2 mb-2">
                   <Target size={18} className="text-pink-500" />
                   <h2 className="text-sm font-bold uppercase tracking-widest">属性バランス分析</h2>
@@ -769,7 +831,7 @@ ${JSON.stringify(
                   全プロジェクトの平均的な傾向をレーダーチャートで可視化します。特定の属性に偏りがないか確認し、戦略的なポートフォリオのバランスを調整しましょう。
                 </p>
               </div>
-              <div className="h-[300px] md:w-1/2 relative p-4 bg-white">
+              <div className="h-[300px] md:w-1/2 relative p-4 bg-white dark:bg-zinc-900">
                 {calculatedProjects.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
@@ -793,9 +855,9 @@ ${JSON.stringify(
             </section>
 
             {/* Detailed Table */}
-            <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-                <div className="flex items-center gap-2 text-zinc-500">
+            <section className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden transition-colors">
+              <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-800/50">
+                <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                   <BarChart3 size={16} />
                   <span className="text-xs font-bold uppercase tracking-wider">詳細スコア分析</span>
                 </div>
@@ -803,7 +865,7 @@ ${JSON.stringify(
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                    <tr className="bg-zinc-50/50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
                       <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase">プロジェクト名</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-center">
                         <div className="flex items-center justify-center gap-1 group relative">
@@ -835,19 +897,19 @@ ${JSON.stringify(
                       <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase text-right">総合スコア</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100">
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                     {calculatedProjects.map((p) => (
-                      <tr key={p.id} className="hover:bg-zinc-50 transition-colors group">
+                      <tr key={p.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="space-y-0.5">
-                            <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
+                            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{p.name}</p>
                             <p className="text-[10px] text-zinc-400 italic truncate max-w-[200px]">{p.minStep || 'ステップ未設定'}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={cn(
                             "text-xs font-mono font-bold px-2 py-1 rounded",
-                            p.qwi > 10 ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-600"
+                            p.qwi > 10 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                           )}>
                             {p.qwi.toFixed(1)}
                           </span>
@@ -855,7 +917,7 @@ ${JSON.stringify(
                         <td className="px-6 py-4 text-center">
                           <span className={cn(
                             "text-xs font-mono font-bold px-2 py-1 rounded",
-                            p.lii > 10 ? "bg-blue-100 text-blue-700" : "bg-zinc-100 text-zinc-600"
+                            p.lii > 10 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                           )}>
                             {p.lii.toFixed(1)}
                           </span>
@@ -863,13 +925,13 @@ ${JSON.stringify(
                         <td className="px-6 py-4 text-center">
                           <span className={cn(
                             "text-xs font-mono font-bold px-2 py-1 rounded",
-                            p.msi > 2 ? "bg-pink-100 text-pink-700" : "bg-zinc-100 text-zinc-600"
+                            p.msi > 2 ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                           )}>
                             {p.msi.toFixed(1)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="text-sm font-bold text-zinc-900">{p.priorityScore.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{p.priorityScore.toFixed(2)}</span>
                         </td>
                       </tr>
                     ))}
@@ -923,10 +985,10 @@ ${JSON.stringify(
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 flex flex-col"
+              className="relative bg-white dark:bg-zinc-900 w-full max-w-xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 flex flex-col"
             >
               {/* Modal Header */}
-              <div className="p-8 pb-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
+              <div className="p-8 pb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between shrink-0">
                 <h2 className="text-xl font-bold tracking-tight">
                   {isAdding ? '新規アイデアの登録' : 'アイデアの編集'}
                 </h2>
@@ -935,7 +997,7 @@ ${JSON.stringify(
                     setEditingProject(null);
                     setIsAdding(false);
                   }}
-                  className="p-2 hover:bg-zinc-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
                 >
                   <ChevronRight size={20} className="rotate-90" />
                 </button>
@@ -951,7 +1013,7 @@ ${JSON.stringify(
                       value={editingProject.name}
                       onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
                       placeholder="例: AIコンサルティング副業"
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all text-sm font-medium"
+                      className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 transition-all text-sm font-medium dark:text-zinc-100"
                     />
                   </div>
 
@@ -988,7 +1050,7 @@ ${JSON.stringify(
                       value={editingProject.minStep}
                       onChange={(e) => setEditingProject({ ...editingProject, minStep: e.target.value })}
                       placeholder="例: 競合他社のWebサイトを3つリサーチする"
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all text-sm font-medium h-24 resize-none"
+                      className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 transition-all text-sm font-medium dark:text-zinc-100 h-24 resize-none"
                     />
                   </div>
 
@@ -1003,7 +1065,7 @@ ${JSON.stringify(
                       step="5"
                       value={editingProject.progress}
                       onChange={(e) => setEditingProject({ ...editingProject, progress: parseInt(e.target.value) })}
-                      className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-zinc-800"
+                      className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-white"
                     />
                     <div className="flex justify-between text-[10px] text-zinc-400 font-bold uppercase">
                       <span>未着手</span>
@@ -1018,19 +1080,19 @@ ${JSON.stringify(
                       value={editingProject.comment}
                       onChange={(e) => setEditingProject({ ...editingProject, comment: e.target.value })}
                       placeholder="例: このプロジェクトは来月から本格始動する予定。"
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all text-sm font-medium h-24 resize-none"
+                      className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 transition-all text-sm font-medium dark:text-zinc-100 h-24 resize-none"
                     />
                   </div>
 
-                  <div className="space-y-4 border-t border-zinc-100 pt-6">
+                  <div className="space-y-4 border-t border-zinc-100 dark:border-zinc-800 pt-6">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">詳細ドキュメント (Markdown)</label>
-                      <div className="flex bg-zinc-100 p-1 rounded-lg">
+                      <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
                         <button
                           onClick={() => setActiveTab('edit')}
                           className={cn(
                             "flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold transition-all",
-                            activeTab === 'edit' ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-700"
+                            activeTab === 'edit' ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                           )}
                         >
                           <Edit3 size={12} />
@@ -1040,7 +1102,7 @@ ${JSON.stringify(
                           onClick={() => setActiveTab('preview')}
                           className={cn(
                             "flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold transition-all",
-                            activeTab === 'preview' ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-700"
+                            activeTab === 'preview' ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                           )}
                         >
                           <Eye size={12} />
@@ -1054,10 +1116,10 @@ ${JSON.stringify(
                         value={editingProject.markdown}
                         onChange={(e) => setEditingProject({ ...editingProject, markdown: e.target.value })}
                         placeholder="プロジェクトの詳細な背景、リサーチ結果、マインドマップなどをMarkdown形式で記述してください。"
-                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-all text-sm font-medium h-64 resize-none font-mono"
+                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 transition-all text-sm font-medium dark:text-zinc-100 h-64 resize-none font-mono"
                       />
                     ) : (
-                      <div className="w-full px-6 py-4 bg-zinc-50 border border-zinc-200 rounded-xl min-h-[16rem] prose prose-zinc prose-sm max-w-none overflow-y-auto">
+                      <div className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl min-h-[16rem] prose prose-zinc dark:prose-invert prose-sm max-w-none overflow-y-auto">
                         <Markdown>{editingProject.markdown || "*ドキュメントが空です*"}</Markdown>
                       </div>
                     )}
@@ -1066,20 +1128,20 @@ ${JSON.stringify(
               </div>
 
               {/* Modal Footer */}
-              <div className="p-8 pt-4 border-t border-zinc-100 flex gap-3 shrink-0">
+              <div className="p-8 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-3 shrink-0">
                 <button
                   onClick={() => {
                     setEditingProject(null);
                     setIsAdding(false);
                   }}
-                  className="flex-1 px-6 py-3 border border-zinc-200 rounded-xl text-sm font-bold hover:bg-zinc-50 transition-colors"
+                  className="flex-1 px-6 py-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
-                  onClick={() => handleSave(editingProject)}
+                  onClick={() => saveProject(editingProject!)}
                   disabled={!editingProject.name}
-                  className="flex-1 px-6 py-3 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   保存して分析
                 </button>
