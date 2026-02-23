@@ -90,6 +90,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [isCopied, setIsCopied] = useState(false);
 
+  // [Medium] モーダル Escape キー対応
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingProject) {
+        setEditingProject(null);
+        setIsAdding(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editingProject, setEditingProject, setIsAdding]);
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('apm_theme');
@@ -167,16 +179,21 @@ export default function App() {
   const recommendations = useMemo(() => {
     if (calculatedProjects.length === 0) return null;
 
+    const startNow = calculatedProjects[0]; // Top overall (already sorted by priorityScore)
     const sortedByQWI = [...calculatedProjects].sort((a, b) => b.qwi - a.qwi);
     const sortedByLII = [...calculatedProjects].sort((a, b) => b.lii - a.lii);
-    const sortedByEffort = [...calculatedProjects].sort((a, b) => b.effort - a.effort);
+    const quickWin = sortedByQWI[0];
+    const longTerm = sortedByLII[0];
 
-    return {
-      startNow: calculatedProjects[0], // Top overall
-      quickWin: sortedByQWI[0],
-      longTerm: sortedByLII[0],
-      discard: sortedByEffort.find(p => p.impact < 4 && p.effort > 7) || sortedByEffort[0],
-    };
+    // [Medium] 他の推奨候補を除外してから discard を選定
+    const reservedIds = new Set([startNow.id, quickWin.id, longTerm.id]);
+    const sortedByEffort = [...calculatedProjects].sort((a, b) => b.effort - a.effort);
+    const discard =
+      sortedByEffort.find(p => p.impact < 4 && p.effort > 7 && !reservedIds.has(p.id)) ||
+      sortedByEffort.find(p => !reservedIds.has(p.id)) ||
+      sortedByEffort[0];
+
+    return { startNow, quickWin, longTerm, discard };
   }, [calculatedProjects]);
 
   const handleDelete = (id: string) => {
@@ -188,6 +205,7 @@ export default function App() {
   const handleClearAll = () => {
     if (window.confirm('すべてのアイデアを削除してもよろしいですか？')) {
       setProjects([]);
+      setOverallAdvice(''); // [Medium] 削除後に古いアドバイスもクリア
       localStorage.removeItem('apm_projects');
     }
   };
@@ -260,12 +278,19 @@ export default function App() {
   };
 
   const exportToCsv = () => {
+    // [Medium] CSV injection 対策: =, +, -, @ で始まる値にシングルクォートを付与
+    const sanitizeCsvValue = (val: string) => {
+      const escaped = val.replace(/"/g, '""');
+      if (/^[=+\-@\t\r]/.test(escaped)) return `"'${escaped}"`;
+      return `"${escaped}"`;
+    };
+
     const headers = ['id', 'name', 'impact', 'effort', 'mentalDrain', 'excitement', 'convexity', 'minStep', 'comment', 'markdown', 'progress'];
     const csvRows = [
       headers.join(','),
       ...projects.map(p => headers.map(h => {
         const val = p[h as keyof Project];
-        return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+        return typeof val === 'string' ? sanitizeCsvValue(val) : val;
       }).join(','))
     ];
     const csvStr = csvRows.join('\n');
@@ -300,18 +325,26 @@ export default function App() {
         }
         values.push(current.trim());
 
-        const p: any = {};
+        // [Medium] 型安全なデフォルト値付きオブジェクトを基盤にする
+        const p: Project = {
+          id: '', name: '',
+          impact: 5, effort: 5, mentalDrain: 5, excitement: 5, convexity: 5,
+          minStep: '', comment: '', markdown: '', progress: 0,
+        };
         headers.forEach((h, i) => {
-          const val = values[i]?.replace(/^"|"$/g, '').replace(/""/g, '"');
-          if (['impact', 'effort', 'mentalDrain', 'excitement', 'convexity', 'progress'].includes(h)) {
-            p[h] = parseInt(val) || 0;
-          } else {
-            p[h] = val || '';
+          const val = values[i]?.replace(/^"|"$/g, '').replace(/""/g, '"') ?? '';
+          // [Medium] 数値フィールドのバリデーション（範囲クランプ）
+          if (['impact', 'effort', 'mentalDrain', 'excitement', 'convexity'].includes(h)) {
+            (p as any)[h] = Math.max(1, Math.min(10, parseInt(val) || 5));
+          } else if (h === 'progress') {
+            p.progress = Math.max(0, Math.min(100, parseInt(val) || 0));
+          } else if (h in p) {
+            (p as any)[h] = val;
           }
         });
 
         if (!p.id) p.id = crypto.randomUUID();
-        return p as Project;
+        return p;
       });
 
       if (importedProjects.length > 0) {
@@ -583,7 +616,7 @@ ${JSON.stringify(
                             <Lightbulb size={32} className="text-zinc-300" />
                           </div>
                           <div className="space-y-1">
-                            <p className="text-sm font-bold text-zinc-900">アイデアを登録しましょう</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">アイデアを登録しましょう</p>
                             <p className="text-xs text-zinc-400 px-4">
                               まず、気になっている副業案やプロジェクトを「新規アイデア追加」から1つ追加してみましょう！
                             </p>
@@ -633,7 +666,7 @@ ${JSON.stringify(
                                       handleDelete(p.id);
                                     }}
                                     aria-label={`「${p.name}」を削除`}
-                                    className="p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:text-red-500 dark:focus:text-red-400"
                                   >
                                     <Trash2 size={14} />
                                   </button>
@@ -767,26 +800,26 @@ ${JSON.stringify(
 
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#3f3f46' : '#f0f0f0'} />
                     <XAxis
                       type="number"
                       dataKey="effort"
                       name="努力"
                       domain={[0, 10]}
-                      tick={{ fontSize: 10 }}
-                      label={{ value: '努力 (Effort)', position: 'insideBottom', offset: -10, fontSize: 10, fontWeight: 'bold' }}
+                      tick={{ fontSize: 10, fill: isDarkMode ? '#a1a1aa' : '#71717a' }}
+                      label={{ value: '努力 (Effort)', position: 'insideBottom', offset: -10, fontSize: 10, fontWeight: 'bold', fill: isDarkMode ? '#a1a1aa' : '#71717a' }}
                     />
                     <YAxis
                       type="number"
                       dataKey="impact"
                       name="インパクト"
                       domain={[0, 10]}
-                      tick={{ fontSize: 10 }}
-                      label={{ value: 'インパクト (Impact)', angle: -90, position: 'insideLeft', offset: 0, fontSize: 10, fontWeight: 'bold' }}
+                      tick={{ fontSize: 10, fill: isDarkMode ? '#a1a1aa' : '#71717a' }}
+                      label={{ value: 'インパクト (Impact)', angle: -90, position: 'insideLeft', offset: 0, fontSize: 10, fontWeight: 'bold', fill: isDarkMode ? '#a1a1aa' : '#71717a' }}
                     />
                     <ZAxis type="number" dataKey="priorityScore" range={[100, 1000]} />
-                    <ReferenceLine x={5} stroke="#e5e7eb" strokeWidth={2} />
-                    <ReferenceLine y={5} stroke="#e5e7eb" strokeWidth={2} />
+                    <ReferenceLine x={5} stroke={isDarkMode ? '#52525b' : '#e5e7eb'} strokeWidth={2} />
+                    <ReferenceLine y={5} stroke={isDarkMode ? '#52525b' : '#e5e7eb'} strokeWidth={2} />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3' }}
                       content={({ active, payload }) => {
@@ -841,11 +874,11 @@ ${JSON.stringify(
                       { subject: '精神摩耗', value: calculatedProjects.reduce((sum, p) => sum + p.mentalDrain, 0) / calculatedProjects.length, fullMark: 10 },
                       { subject: '努力', value: calculatedProjects.reduce((sum, p) => sum + p.effort, 0) / calculatedProjects.length, fullMark: 10 }
                     ]}>
-                      <PolarGrid stroke="#e5e7eb" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#71717a', fontSize: 10, fontWeight: 'bold' }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fill: '#a1a1aa', fontSize: 8 }} />
+                      <PolarGrid stroke={isDarkMode ? '#3f3f46' : '#e5e7eb'} />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: 10, fontWeight: 'bold' }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 8 }} />
                       <Radar name="Average Profile" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.4} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: `1px solid ${isDarkMode ? '#3f3f46' : '#e5e7eb'}`, fontSize: '12px', backgroundColor: isDarkMode ? '#18181b' : '#ffffff', color: isDarkMode ? '#f4f4f5' : '#18181b' }} />
                     </RadarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -982,6 +1015,9 @@ ${JSON.stringify(
               className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
             />
             <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={isAdding ? '新規アイデアの登録' : 'アイデアの編集'}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}

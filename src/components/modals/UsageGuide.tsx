@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Brain, BarChart3, Sparkles, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../utils';
@@ -56,6 +56,21 @@ export const UsageGuide: React.FC<UsageGuideProps> = ({ isOpen, onClose }) => {
         }
     ];
 
+    // [Low] 再表示時に step を先頭にリセット
+    useEffect(() => {
+        if (isOpen) setStep(0);
+    }, [isOpen]);
+
+    // [Medium] Escape キー対応
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -68,6 +83,9 @@ export const UsageGuide: React.FC<UsageGuideProps> = ({ isOpen, onClose }) => {
                         className="absolute inset-0 bg-zinc-900/80 backdrop-blur-md"
                     />
                     <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={steps[step].title}
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}

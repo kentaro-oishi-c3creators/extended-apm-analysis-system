@@ -1,11 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Project, CalculatedProject } from '../types';
 import { DEFAULT_PROJECTS } from '../constants';
 
 export const useProjects = () => {
+    // [High] localStorage の JSON.parse にエラーハンドリング追加
     const [projects, setProjects] = useState<Project[]>(() => {
-        const saved = localStorage.getItem('apm_projects');
-        return saved ? JSON.parse(saved) : DEFAULT_PROJECTS;
+        try {
+            const saved = localStorage.getItem('apm_projects');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) return parsed;
+            }
+        } catch (e) {
+            console.error('Failed to parse saved projects, resetting to defaults:', e);
+            localStorage.removeItem('apm_projects');
+        }
+        return DEFAULT_PROJECTS;
     });
 
     const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -47,14 +57,19 @@ export const useProjects = () => {
         return { ...p, qwi, lii, msi, priorityScore };
     };
 
-    const orderedProjects = projects.map(calculateScores);
-    const calculatedProjects = [...orderedProjects].sort((a, b) => b.priorityScore - a.priorityScore);
+    // [Medium] useMemo でスコア計算をキャッシュ（無関係な再レンダーで再計算しない）
+    const orderedProjects = useMemo(() => projects.map(calculateScores), [projects]);
 
-    const filteredProjects = orderedProjects.filter(p => {
+    const calculatedProjects = useMemo(
+        () => [...orderedProjects].sort((a, b) => b.priorityScore - a.priorityScore),
+        [orderedProjects]
+    );
+
+    const filteredProjects = useMemo(() => orderedProjects.filter(p => {
         if (filter === 'completed') return p.progress === 100;
         if (filter === 'in-progress') return p.progress < 100;
         return true;
-    });
+    }), [orderedProjects, filter]);
 
     const reorderProjects = (startIndex: number, endIndex: number) => {
         const result = Array.from(projects);
@@ -63,13 +78,16 @@ export const useProjects = () => {
         setProjects(result);
     };
 
+    // [Critical] 保存前に計算フィールド（qwi, lii, msi, priorityScore）を除去
     const saveProject = (project: Project) => {
         if (!project.name) return;
 
-        if (project.id) {
-            setProjects(prev => prev.map(p => p.id === project.id ? project : p));
+        const { qwi, lii, msi, priorityScore, ...cleanProject } = project as CalculatedProject;
+
+        if (cleanProject.id) {
+            setProjects(prev => prev.map(p => p.id === cleanProject.id ? cleanProject : p));
         } else {
-            setProjects(prev => [...prev, { ...project, id: crypto.randomUUID() }]);
+            setProjects(prev => [...prev, { ...cleanProject, id: crypto.randomUUID() }]);
         }
         setIsAdding(false);
         setEditingProject(null);

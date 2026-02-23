@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../utils';
@@ -17,6 +17,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     userPersonality,
     setUserPersonality
 }) => {
+    // [Medium] Escape キー対応
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -28,6 +38,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={onClose}
                 >
                     <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="分析設定"
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}
@@ -41,6 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </h2>
                             <button
                                 onClick={onClose}
+                                aria-label="閉じる"
                                 className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 transition-colors"
                             >
                                 ✕
